@@ -9,12 +9,8 @@ import requests
 
 def getData(attr):
 
-    stat = soup.find(text=re.compile(attr))
     data = soup.find(text=re.compile(attr)).find_next('div').contents[0].strip()
-
-    return (stat, data)
-
-
+    return data
 
 if __name__=="__main__":
 
@@ -22,33 +18,24 @@ if __name__=="__main__":
     url = f"https://www.morningstar.com/stocks/xnas/{ticker}/quote"
 
     browser = webdriver.Chrome()
-    # browser.get(url)
+    browser.get(url)
 
-    # soup = BeautifulSoup(browser.page_source,'lxml')
+    soup = BeautifulSoup(browser.page_source,'lxml')
 
-    # price = soup.find('div', {'id':'message-box-price'})
-    # price2 = price.text.strip()
-    # print(price2)
+    price = soup.find('div', {'id':'message-box-price'})
+    price2 = price.text.strip()
+    print("Price: ", price2)
 
     url = f"https://www.morningstar.com/stocks/xnas/{ticker}/financials"
     browser.get(url)
     soup = BeautifulSoup(browser.page_source,'lxml')
-    print(getData("Debt/Equity"))
+    
+    pe_ratio = getData("Price/Earnings")
+    debt_equ_ratio = getData("Debt/Equity")
+    roic = getData("Invested Capital %")
+
+    print("P/E: ", pe_ratio)
+    print("Debt/Equity: ", debt_equ_ratio)
+    print("ROIC: ", roic)
 
     browser.close()
-    
-    # try:
-    #     r = requests.get(url)
-    #     r.raise_for_status()
-
-    # except requests.exceptions.HTTPError as e:
-    #     raise SystemExit(e) 
-
-    # # Parse the html content
-    # soup = BeautifulSoup(r.text, "lxml")
-    # print(soup.text) # print the parsed data of html
-
-    # # stats = soup.find_all("li")
-    # # for div in stats:
-    # #     print(div)
-  
