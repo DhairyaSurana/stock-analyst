@@ -18,10 +18,18 @@ if __name__=="__main__":
     ticker = sys.argv[1]
     url = f"https://www.morningstar.com/stocks/xnas/{ticker}/quote"
 
+    r = requests.get(url)
+
+    try:
+        r.raise_for_status()
+    except Exception as e:
+        raise SystemExit(e)
+
     chrome_options = Options()  
     chrome_options.add_argument("--headless")   # Allows web access without opening browser
     chrome_options.add_argument('--log-level=3') # Prevents headless chrome-related console messages from printing
     browser = webdriver.Chrome(options=chrome_options)
+
     browser.get(url)
 
     soup = BeautifulSoup(browser.page_source,'lxml')
