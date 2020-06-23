@@ -16,24 +16,15 @@ import time
 import os
 
 
-def getTextData(browser, soup, attr):
+def getTextData(soup, attr):
 
-    # try:
-    #     element_present = EC.presence_of_element_located((By.TEXT, attr))
-    #     WebDriverWait(browser, 10).until(element_present)
-    # except:
-    #     return None
-    label = None
-    count = 0
-    while label is None:
-        if count > 0:
-            soup = BeautifulSoup(browser.page_source,'lxml')
+    try:
         label = soup.find(text=re.compile(attr))
-        count+=1
-        print("Data count: ", count)
-        time.sleep(1)
+        data = label.find_next('div').contents[0].strip() 
 
-    data = label.find_next('div').contents[0].strip() 
+    except Exception:
+        return None
+
     return data
 
 if __name__=="__main__":
@@ -45,12 +36,10 @@ if __name__=="__main__":
     
         chrome_options = Options()  
         chrome_options.add_argument("--headless")   # Allows web access without opening browser
-        chrome_options.add_argument('--window-size=1920x1080')
-        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        chrome_options.add_argument('--log-level=3') # Prevents headless chrome-related console messages from printing
+        chrome_options.add_argument('--window-size=1920x1080')  # Allows certain elements to be reachable when headless chrome is enabled
+        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging']) # Gets rid of official Selenium connection messages
+        chrome_options.add_argument('--log-level=3') # Disables chrome-related console messages
         browser = webdriver.Chrome(options=chrome_options)
-
-        time.sleep(1)
 
         url = "https://www.morningstar.com/stocks"
         browser.get(url)
@@ -64,41 +53,45 @@ if __name__=="__main__":
 
             # Enter ticker symbol in search bar  
             # Repeat process if correct url is not loaded
-            count = 0
+            conn_attempt = 0
             while "quote" not in browser.current_url:       
 
                 browser.find_element_by_tag_name("input").send_keys(ticker)
                 time.sleep(1)
                 browser.find_element_by_tag_name("input").send_keys(Keys.RETURN)
                 time.sleep(2)
-                count+=1
-                print("URL count: ", count)
-            # Click on 'Financials' tab
-            # try:
-            #     element_present = EC.presence_of_element_located((By.LINK_TEXT, 'Financials'))
-            #     fin_link = WebDriverWait(browser, 5).until(element_present)
-            # except:
-            #     print("Timed out waiting for page to load")
-            #     print()
-            #     continue
+
+                conn_attempt+=1
             
-            # fin_link.send_keys(Keys.RETURN)
-            # time.sleep(2)
-            fin_url = str(browser.current_url).replace("quote", "financials")
+            print("Connection Attempts: ", conn_attempt)
+            
+            # Get Finance URL
+            fin_url = browser.current_url.replace("quote", "financials")
             browser.get(fin_url)
             browser.implicitly_wait(5)
             print("URL: ", browser.current_url)
+            
+            # Create Soup object
+            soup_cnt = 1
             soup = BeautifulSoup(browser.page_source,'lxml')
-            print("SOUP TYPE: ", type(soup))
+            while soup.find(text=re.compile("Price/Earnings")) is None:
+                soup = BeautifulSoup(browser.page_source,'lxml')
+                soup_cnt+=1
+
+            print("Soup Attempts: ", soup_cnt)
+
+            # Get Company Stats:
+            pe_ratio = getTextData(soup, "Price/Earnings")
+            roic = getTextData(soup, "Invested Capital %")
 
             # Print Company Stats
             print("Company: ", ticker)
             print("     Price: ", fin_data["currentPrice"])
-            print("     P/E: ", getTextData(browser, soup, "Price/Earnings"))
+            print("     P/E: ", pe_ratio)
             print("     Debt/Equity: ", round(fin_data["debtToEquity"]/100, 2))
-            print("     ROIC: ", getTextData(browser, soup, "Invested Capital %"))
-            print()
+            print("     ROIC: ", roic, end="\n\n")
 
+            # Calculate runtime for current iteration (stock)
             duration = round(time.time() - start_time, 2) 
             dur_list.append(duration)
 
