@@ -4,6 +4,10 @@ from bs4 import BeautifulSoup
 from selenium import webdriver 
 from selenium.webdriver.chrome.options import Options  
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+
 from yahooquery import Ticker
 from statistics import mean
 import sys
@@ -12,9 +16,24 @@ import time
 import os
 
 
-def getData(soup, attr):
+def getTextData(browser, soup, attr):
 
-    data = soup.find(text=re.compile(attr)).find_next('div').contents[0].strip()
+    # try:
+    #     element_present = EC.presence_of_element_located((By.TEXT, attr))
+    #     WebDriverWait(browser, 10).until(element_present)
+    # except:
+    #     return None
+    label = None
+    count = 0
+    while label is None:
+        if count > 0:
+            soup = BeautifulSoup(browser.page_source,'lxml')
+        label = soup.find(text=re.compile(attr))
+        count+=1
+        print("Data count: ", count)
+        time.sleep(1)
+
+    data = label.find_next('div').contents[0].strip() 
     return data
 
 if __name__=="__main__":
@@ -43,24 +62,41 @@ if __name__=="__main__":
             company = Ticker(ticker)
             fin_data = company.financial_data[ticker]
 
-            # Enter ticker symbol in search bar        
-            browser.find_element_by_tag_name("input").send_keys(ticker)
-            time.sleep(1)
-            browser.find_element_by_tag_name("input").send_keys(Keys.RETURN)
+            # Enter ticker symbol in search bar  
+            # Repeat process if correct url is not loaded
+            count = 0
+            while "quote" not in browser.current_url:       
 
-            time.sleep(2)
-                
+                browser.find_element_by_tag_name("input").send_keys(ticker)
+                time.sleep(1)
+                browser.find_element_by_tag_name("input").send_keys(Keys.RETURN)
+                time.sleep(2)
+                count+=1
+                print("URL count: ", count)
             # Click on 'Financials' tab
-            browser.find_element_by_link_text("Financials").send_keys(Keys.RETURN)
-            time.sleep(2)
+            # try:
+            #     element_present = EC.presence_of_element_located((By.LINK_TEXT, 'Financials'))
+            #     fin_link = WebDriverWait(browser, 5).until(element_present)
+            # except:
+            #     print("Timed out waiting for page to load")
+            #     print()
+            #     continue
+            
+            # fin_link.send_keys(Keys.RETURN)
+            # time.sleep(2)
+            fin_url = str(browser.current_url).replace("quote", "financials")
+            browser.get(fin_url)
+            browser.implicitly_wait(5)
+            print("URL: ", browser.current_url)
             soup = BeautifulSoup(browser.page_source,'lxml')
+            print("SOUP TYPE: ", type(soup))
 
             # Print Company Stats
             print("Company: ", ticker)
             print("     Price: ", fin_data["currentPrice"])
-            print("     P/E: ", getData(soup, "Price/Earnings"))
+            print("     P/E: ", getTextData(browser, soup, "Price/Earnings"))
             print("     Debt/Equity: ", round(fin_data["debtToEquity"]/100, 2))
-            print("     ROIC: ", getData(soup, "Invested Capital %"))
+            print("     ROIC: ", getTextData(browser, soup, "Invested Capital %"))
             print()
 
             duration = round(time.time() - start_time, 2) 
