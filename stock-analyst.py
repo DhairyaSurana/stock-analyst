@@ -30,8 +30,7 @@ def getTextData(soup, attr):
 if __name__=="__main__":
 
     ticker_list = ["PCRFY", "MSFT", "AMZN", "AAPL", "TSLA", "ZNGA", "CCLP"]
-    dur_list = []
-
+  
     try:
     
         chrome_options = Options()  
@@ -91,11 +90,7 @@ if __name__=="__main__":
             print("     Debt/Equity: ", round(fin_data["debtToEquity"]/100, 2))
             print("     ROIC: ", roic, end="\n\n")
 
-            # Calculate runtime for current iteration (stock)
-            duration = round(time.time() - start_time, 2) 
-            dur_list.append(duration)
-
-        print("Avg Runtime/stock: ", mean(dur_list), " s")
+        print("Runtime: ", time.perf_counter(), " s")
         browser.close()   
     
     except Exception as e:
