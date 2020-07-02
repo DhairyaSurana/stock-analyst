@@ -1,156 +1,81 @@
-# # stock-analyst.py
-
-from bs4 import BeautifulSoup
-from selenium import webdriver 
-from selenium.webdriver.chrome.options import Options  
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-#from get_all_tickers import get_tickers as gt
-from yahooquery import Ticker
-from statistics import mean
-import sys
-import re
+import pycurl
+import certifi
 import time
-import os
-from multiprocessing import Pool, cpu_count
+from io import BytesIO 
+from bs4 import BeautifulSoup
+import re
+import datetime
 
 
-def initDriver():
+def getPages(ticker_list):
 
-    chrome_options = Options()  
-    chrome_options.add_argument("--headless")   # Allows web access without opening browser
-    chrome_options.add_argument('--window-size=1920x1080')  # Allows certain elements to be reachable when headless chrome is enabled
-    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging']) # Gets rid of official Selenium connection messages
-    chrome_options.add_argument('--log-level=3') # Disables chrome-related console messages
+    print("Getting URLs...", end="  ")
+    start_time = time.time()
+
+    page_list = []
+    for ticker in ticker_list:
+
+        b_obj = BytesIO() 
+        crl = pycurl.Curl() 
+
+        # Set URL value
+        crl.setopt(pycurl.CAINFO, certifi.where())
+        crl.setopt(crl.URL, f'https://www.wsj.com/market-data/quotes/{ticker}/financials')
+
+        # Write bytes that are utf-8 encoded
+        crl.setopt(crl.WRITEDATA, b_obj)
+
+        # Perform a file transfer 
+        crl.perform() 
+
+        # Get the content stored in the BytesIO object (in byte characters) 
+        html = b_obj.getvalue().decode('utf8')
+
+        page_list.append(html)
     
-    return  webdriver.Chrome(options=chrome_options)
-browser = initDriver()
-def getTextData(soup, attr):
+    # End curl session
+    crl.close()
 
-    try:
-        label = soup.find(text=re.compile(attr))
-        data = label.find_next('div').contents[0].strip() 
+    print("Runtime: ", time.time() - start_time, " s", end="\n\n")
 
-    except Exception:
-        return None
+    return page_list
+   
 
-    return data
 
-def getURLs(arr):
+def getData(pages):
 
-    url = "https://www.morningstar.com/stocks"
-    browser.get(url)
+    print("Gathering Data...")
+    start_time = time.time()
+    for html in pages:
 
-    url_list = []
-    for ticker in arr:
+        html_text = re.sub('<[^<]+?>', '', html)
 
-        while "quote" not in browser.current_url:       
+        name_start = "<span class=\"companyName\">"
+        name_end = "</span> <span class=\"tickerName\">"
+        print("Company: ", html[html.index(name_start) + len(name_start) : html.index(name_end)])
 
-            browser.find_element_by_tag_name("input").send_keys(ticker)
-            time.sleep(1)
-            browser.find_element_by_tag_name("input").send_keys(Keys.RETURN)
-            time.sleep(2)
+        price_start = "<span id=\"quote_val\">"
+        price_end = "</span></span> <span class=\"cr_sym\""
+        print("     Price: ", html[html.index(price_start) + len(price_start) : html.index(price_end)])
 
-            fin_url = browser.current_url.replace("quote", "financials")
-            url_list.append(fin_url)
+        pe_start = "P/E Ratio (TTM)"
+        pe_end = "P/E Ratio (including extraordinary items)"
+        print("     P/E Ratio: ", html_text[html_text.index(pe_start) + len(pe_start) : html_text.index(pe_end)])
 
-    return url_list
+        roc_start = "Return on Total Capital"
+        roc_end = "Return on Invested Capital"
+        print("     ROC: ", html_text[html_text.index(roc_start) + len(roc_start) : html_text.index(roc_end)])
+        print()
 
-def scrape(url):
+    print("Runtime: ", time.time() - start_time, " s", end="\n\n")   
 
-    browser.get(url)
-    browser.implicitly_wait(5)
-    # WebDriverWait(browser, 5).until(
-    #             EC.presence_of_element_located((By.CLASS_NAME, 'stock__content'))
-    #         )
     
-    # Create Soup object
-    soup_cnt = 1
-    soup = BeautifulSoup(browser.page_source,'lxml')
-    while soup.find(text=re.compile("Price/Earnings")) is None:
-        soup = BeautifulSoup(browser.page_source,'lxml')
-        soup_cnt+=1
+if __name__ == "__main__":
 
-    # Get Company Stats:
-    pe_ratio = getTextData(soup, "Price/Earnings")
-    roic = getTextData(soup, "Invested Capital %")
-
-def getCompInfo(ticker):
-
-    company = Ticker(ticker)
-    fin_data = company.financial_data[ticker]
-
-    url = "https://www.morningstar.com/stocks"
-    #browser = initDriver()
-    browser.get(url)
-
-    # Enter ticker symbol in search bar  
-    # Repeat process if correct url is not loaded
-    conn_attempt = 0
-    while "quote" not in browser.current_url:       
-
-        browser.find_element_by_tag_name("input").send_keys(ticker)
-        time.sleep(1)
-        browser.find_element_by_tag_name("input").send_keys(Keys.RETURN)
-        time.sleep(2)
-
-        conn_attempt+=1
     
-    # Get Finance URL
-    fin_url = browser.current_url.replace("quote", "financials")
-    browser.get(fin_url)
-    #browser.implicitly_wait(5)
-    # WebDriverWait(browser, 5).until(
-    #             EC.presence_of_element_located((By.CLASS_NAME, 'stock__content'))
-    #         )
-    
-    # Create Soup object
-    soup_cnt = 1
-    soup = BeautifulSoup(browser.page_source,'lxml')
-    while soup.find(text=re.compile("Price/Earnings")) is None:
-        soup = BeautifulSoup(browser.page_source,'lxml')
-        soup_cnt+=1
-
-    # Get Company Stats:
-    pe_ratio = getTextData(soup, "Price/Earnings")
-    roic = getTextData(soup, "Invested Capital %")
-
-    # Print Company Stats
-    print("Connection Attempts: ", conn_attempt)
-    print("URL: ", browser.current_url)
-    print("Soup Attempts: ", soup_cnt)
-    print("Company: ", ticker)
-    print("     Price: ", fin_data["currentPrice"])
-    print("     P/E: ", pe_ratio)
-    print("     Debt/Equity: ", round(fin_data["debtToEquity"]/100, 2))
-    print("     ROIC: ", roic, end="\n\n")
-
-    # browser.close()
-
-if __name__=="__main__":
-
     ticker_list = ["PCRFY", "MSFT", "AMZN", "AAPL", "TSLA", "ZNGA", "CCLP"]
 
-    try:
+    page_list = getPages(ticker_list)
+    getData(page_list)
 
-        with Pool(cpu_count()) as p:
-            list(p.imap(getCompInfo, ticker_list))
-       
-        p.close()
-        p.join()
-            
-        print("Runtime: ", time.perf_counter(), " s", end="\n\n")   
-    
-    except Exception as e:
-        print(e)
-        print()
-        print("Quitting browser")
-
-    except KeyboardInterrupt:
-        print()
-        print("Quitting browser")
-
-    finally:
-        os.system("taskkill /IM \"chrome.exe\" /F")
+    print("Total Runtime: ", time.perf_counter(), " s", end="\n\n")   
