@@ -1,8 +1,9 @@
+# Author: Dhairya Surana
+
 import pycurl
 import certifi
 import time
 from io import BytesIO 
-from bs4 import BeautifulSoup
 import re
 import datetime
 import concurrent.futures
