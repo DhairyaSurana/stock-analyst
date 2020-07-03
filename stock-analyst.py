@@ -5,6 +5,9 @@ from io import BytesIO
 from bs4 import BeautifulSoup
 import re
 import datetime
+import concurrent.futures
+
+MAX_THREADS = 30
 
 
 def getURL(ticker):
@@ -27,13 +30,18 @@ def getURL(ticker):
 
     crl.close()
 
+    time.sleep(0.15)
+
     return result
 
 
 def getPages(ticker_list):
 
     print("Getting URLs...", end="\n\n")
-    return map(getURL, ticker_list)
+
+    threads = min(MAX_THREADS, len(ticker_list))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        return executor.map(getURL, ticker_list)
 
 def getData(html):
 
@@ -41,19 +49,32 @@ def getData(html):
 
     name_start = "<span class=\"companyName\">"
     name_end = "</span> <span class=\"tickerName\">"
-    print("Company: ", html[html.index(name_start) + len(name_start) : html.index(name_end)])
+    try:
+        print("Company: ", html[html.index(name_start) + len(name_start) : html.index(name_end)])
+    except:
+        print("Company: not found")
 
     price_start = "<span id=\"quote_val\">"
     price_end = "</span></span> <span class=\"cr_sym\""
-    print("     Price: ", html[html.index(price_start) + len(price_start) : html.index(price_end)])
+    try:
+        print("     Price: ", html[html.index(price_start) + len(price_start) : html.index(price_end)])
+    except:
+        print("     Price: not found")
 
     pe_start = "P/E Ratio (TTM)"
     pe_end = "P/E Ratio (including extraordinary items)"
-    print("     P/E Ratio: ", html_text[html_text.index(pe_start) + len(pe_start) : html_text.index(pe_end)])
+    try:
+        print("     P/E Ratio: ", html_text[html_text.index(pe_start) + len(pe_start) : html_text.index(pe_end)])
+    except:
+        print(      "P/E Ratio: not found")
 
     roc_start = "Return on Total Capital"
     roc_end = "Return on Invested Capital"
-    print("     ROC: ", html_text[html_text.index(roc_start) + len(roc_start) : html_text.index(roc_end)])
+    try:
+        print("     ROC: ", html_text[html_text.index(roc_start) + len(roc_start) : html_text.index(roc_end)])
+    except:
+        print("     ROC: not found")
+
     print()
 
     
