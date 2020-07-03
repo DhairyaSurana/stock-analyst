@@ -7,75 +7,61 @@ import re
 import datetime
 
 
-def getPages(ticker_list):
+def getURL(ticker):
 
-    print("Getting URLs...", end="  ")
-    start_time = time.time()
+    b_obj = BytesIO() 
+    crl = pycurl.Curl() 
 
-    page_list = []
-    for ticker in ticker_list:
+    # Set URL value
+    crl.setopt(pycurl.CAINFO, certifi.where())
+    crl.setopt(crl.URL, f'https://www.wsj.com/market-data/quotes/{ticker}/financials')
 
-        b_obj = BytesIO() 
-        crl = pycurl.Curl() 
+    # Write bytes that are utf-8 encoded
+    crl.setopt(crl.WRITEDATA, b_obj)
 
-        # Set URL value
-        crl.setopt(pycurl.CAINFO, certifi.where())
-        crl.setopt(crl.URL, f'https://www.wsj.com/market-data/quotes/{ticker}/financials')
+    # Perform a file transfer 
+    crl.perform() 
 
-        # Write bytes that are utf-8 encoded
-        crl.setopt(crl.WRITEDATA, b_obj)
+    # Get the content stored in the BytesIO object (in byte characters) 
+    result =  b_obj.getvalue().decode('utf8')
 
-        # Perform a file transfer 
-        crl.perform() 
-
-        # Get the content stored in the BytesIO object (in byte characters) 
-        html = b_obj.getvalue().decode('utf8')
-
-        page_list.append(html)
-    
-    # End curl session
     crl.close()
 
-    print("Runtime: ", time.time() - start_time, " s", end="\n\n")
-
-    return page_list
-   
+    return result
 
 
-def getData(pages):
+def getPages(ticker_list):
 
-    print("Gathering Data...")
-    start_time = time.time()
-    for html in pages:
+    print("Getting URLs...", end="\n\n")
+    return map(getURL, ticker_list)
 
-        html_text = re.sub('<[^<]+?>', '', html)
+def getData(html):
 
-        name_start = "<span class=\"companyName\">"
-        name_end = "</span> <span class=\"tickerName\">"
-        print("Company: ", html[html.index(name_start) + len(name_start) : html.index(name_end)])
+    html_text = re.sub('<[^<]+?>', '', html)
 
-        price_start = "<span id=\"quote_val\">"
-        price_end = "</span></span> <span class=\"cr_sym\""
-        print("     Price: ", html[html.index(price_start) + len(price_start) : html.index(price_end)])
+    name_start = "<span class=\"companyName\">"
+    name_end = "</span> <span class=\"tickerName\">"
+    print("Company: ", html[html.index(name_start) + len(name_start) : html.index(name_end)])
 
-        pe_start = "P/E Ratio (TTM)"
-        pe_end = "P/E Ratio (including extraordinary items)"
-        print("     P/E Ratio: ", html_text[html_text.index(pe_start) + len(pe_start) : html_text.index(pe_end)])
+    price_start = "<span id=\"quote_val\">"
+    price_end = "</span></span> <span class=\"cr_sym\""
+    print("     Price: ", html[html.index(price_start) + len(price_start) : html.index(price_end)])
 
-        roc_start = "Return on Total Capital"
-        roc_end = "Return on Invested Capital"
-        print("     ROC: ", html_text[html_text.index(roc_start) + len(roc_start) : html_text.index(roc_end)])
-        print()
+    pe_start = "P/E Ratio (TTM)"
+    pe_end = "P/E Ratio (including extraordinary items)"
+    print("     P/E Ratio: ", html_text[html_text.index(pe_start) + len(pe_start) : html_text.index(pe_end)])
 
-    print("Runtime: ", time.time() - start_time, " s", end="\n\n")   
+    roc_start = "Return on Total Capital"
+    roc_end = "Return on Invested Capital"
+    print("     ROC: ", html_text[html_text.index(roc_start) + len(roc_start) : html_text.index(roc_end)])
+    print()
 
     
 if __name__ == "__main__":
 
-    
     ticker_list = ["PCRFY", "MSFT", "AMZN", "AAPL", "TSLA", "ZNGA", "CCLP"]
 
     page_list = getPages(ticker_list)
-    getData(page_list)
+    list(map(getData, page_list))
 
     print("Total Runtime: ", time.perf_counter(), " s", end="\n\n")   
