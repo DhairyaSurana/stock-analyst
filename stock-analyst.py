@@ -7,6 +7,7 @@ from io import BytesIO
 import re
 import datetime
 import concurrent.futures
+import sys
 
 MAX_THREADS = 30
 
@@ -81,9 +82,17 @@ def getData(html):
     
 if __name__ == "__main__":
 
-    ticker_list = ["PCRFY", "MSFT", "AMZN", "AAPL", "TSLA", "ZNGA", "CCLP"]
+    start_time = time.time()
+    
+    try:
+        file = open(sys.argv[1], 'rb')
+        
+    except Exception as e:
+        SystemExit(e)
+
+    ticker_list = [line.rstrip().decode("utf-8") for line in file.readlines()]
 
     page_list = getPages(ticker_list)
     list(map(getData, page_list))
 
-    print("Total Runtime: ", time.perf_counter(), " s", end="\n\n")   
+    print("Runtime: ", time.time() - start_time, " s")
