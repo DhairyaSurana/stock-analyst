@@ -3,11 +3,13 @@
 import pycurl
 import certifi
 import time
-from io import BytesIO 
 import re
 import datetime
 import concurrent.futures
 import sys
+
+from multiprocessing import Process
+from io import BytesIO 
 
 MAX_THREADS = 30
 
@@ -56,9 +58,8 @@ def getURL(ticker):
 
 def getPages(ticker_list):
 
-    print("Getting URLs...", end="\n\n")
-
     threads = min(MAX_THREADS, len(ticker_list))
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
         return executor.map(getURL, ticker_list)
 
@@ -101,6 +102,15 @@ def getData(tup, out_file):
 
     out_file.write("\n")
 
+def playWaitAnim():
+
+    animation = "|/-\\"
+    
+    idx = 0
+    while True:
+        print("Getting URLS...", animation[idx % len(animation)], end="\r")
+        idx += 1
+        time.sleep(0.1)
     
 if __name__ == "__main__":
 
@@ -116,8 +126,12 @@ if __name__ == "__main__":
     ticker_list = [line.rstrip().decode("utf-8").split()[0] for line in inp_file.readlines()]
     inp_file.close()
 
+    p1 = Process(target=playWaitAnim)
+    p1.start()
+
     page_list = getPages(ticker_list)
-    #list(map(getData, page_list))
+    p1.terminate()
+    print("Getting URLS... COMPLETE")
 
     for page in page_list:
         getData(page, out_file)
