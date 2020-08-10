@@ -8,11 +8,11 @@ import datetime
 import concurrent.futures
 import sys
 
-from multiprocessing import Process
+from threading import Thread
 from io import BytesIO 
 
 MAX_THREADS = 30
-
+WAITING = True
 
 def getURL(ticker):
 
@@ -91,7 +91,7 @@ def getData(tup, out_file):
     try:
         out_file.write("     P/E Ratio: " + html_text[html_text.index(pe_start) + len(pe_start) : html_text.index(pe_end)] + "\n")
     except:
-        out_file.write(      "P/E Ratio: not found\n")
+        out_file.write("     P/E Ratio: not found\n")
 
     roc_start = "Return on Total Capital"
     roc_end = "Return on Invested Capital"
@@ -108,6 +108,11 @@ def playWaitAnim():
     
     idx = 0
     while True:
+
+        if not WAITING:
+            print("Getting URLS... COMPLETE")
+            break
+            
         print("Getting URLS...", animation[idx % len(animation)], end="\r")
         idx += 1
         time.sleep(0.1)
@@ -126,13 +131,13 @@ if __name__ == "__main__":
     ticker_list = [line.rstrip().decode("utf-8").split()[0] for line in inp_file.readlines()]
     inp_file.close()
 
-    p1 = Process(target=playWaitAnim)
-    p1.start()
+    # Thread for waiting animation 
+    wait_anim_thread = Thread(target=playWaitAnim)
+    wait_anim_thread.start()
 
     page_list = getPages(ticker_list)
-    p1.terminate()
-    print("Getting URLS... COMPLETE")
-
+    WAITING = False     # Waiting Thread ends here
+   
     for page in page_list:
         getData(page, out_file)
 
