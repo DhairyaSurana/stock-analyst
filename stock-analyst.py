@@ -11,7 +11,7 @@ import sys
 from threading import Thread
 from io import BytesIO 
 
-MAX_THREADS = 30
+MAX_THREADS = 60
 WAITING = True
 
 def getURL(ticker):
@@ -120,7 +120,7 @@ def playWaitAnim():
 if __name__ == "__main__":
 
     start_time = time.time()
-    
+
     try:
         inp_file = open(sys.argv[1], 'rb')
         out_file = open("data.txt", 'a')
